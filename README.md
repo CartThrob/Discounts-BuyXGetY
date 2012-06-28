@@ -1,7 +1,5 @@
-cartthrob-discounts-buy_x_get_y
+cartthrob-discounts
 ===============================
-
-Discount plugin: Buy X get Y free
 
 Installation: move file to system > expressionengine > third_party > cartthrob > cartthrob > plugins > discount
 
