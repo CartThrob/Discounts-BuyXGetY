@@ -1,6 +1,10 @@
 <?php if ( ! defined('CARTTHROB_PATH')) Cartthrob_core::core_error('No direct script access allowed');
 
-class Cartthrob_discount_buy_x_get_y extends Cartthrob_discount
+use CartThrob\Math\Number;
+use CartThrob\Plugins\Discount\DiscountPlugin;
+use ExpressionEngine\Service\Validation\Result as ValidateResult;
+
+class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
 {
 	public $title = 'buy_x_get_y';
 
@@ -229,7 +233,7 @@ class Cartthrob_discount_buy_x_get_y extends Cartthrob_discount
 		return $discount;
 	}
 
-	function validate()
+    public function validate(array $post_data = []): ValidateResult
 	{
 		$entry_ids = array();
 		$not_entry_ids = array();
