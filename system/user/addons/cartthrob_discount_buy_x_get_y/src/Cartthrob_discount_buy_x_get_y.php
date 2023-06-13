@@ -62,7 +62,7 @@ class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
 
         // CHECK AMOUNTS AND PERCENTAGES
         if ($this->plugin_settings('percentage_off') !== '') {
-            $percentage_off = ".01" * $this->core->sanitize_number($this->plugin_settings('percentage_off'));
+            $percentage_off = .01 * Number::sanitize($this->plugin_settings('percentage_off'));
 
             if ($percentage_off > 100) {
                 $percentage_off = 100;
@@ -70,7 +70,7 @@ class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
                 $percentage_off = 0;
             }
         } else {
-            $amount_off = $this->core->sanitize_number($this->plugin_settings('amount_off'));
+            $amount_off = Number::sanitize($this->plugin_settings('amount_off'));
         }
 
         if ($this->plugin_settings('y_entry_ids')) {
@@ -131,7 +131,6 @@ class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
 
         $counts = [];
         reset($items);
-
         while (($price = current($items)) !== false) {
             $key = key($items);
 
@@ -195,7 +194,7 @@ class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
         if (!$this->plugin_settings('entry_ids')) {
 
             foreach ($this->core->cart->items() as $item) {
-                if ($item->quantity() > $this->core->sanitize_number($this->plugin_settings('buy_x'))) {
+                if ($item->quantity() > Number::sanitize($this->plugin_settings('buy_x'))) {
                     return true;
                 }
                 $this->set_error($this->core->lang('coupon_minimum_not_reached'));
@@ -216,7 +215,7 @@ class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
 
             foreach ($this->core->cart->items() as $item) {
                 if ($item->product_id() && in_array($item->product_id(), $entry_ids)) {
-                    if ($item->quantity() > $this->core->sanitize_number($this->plugin_settings('buy_x'))) {
+                    if ($item->quantity() > Number::sanitize($this->plugin_settings('buy_x'))) {
                         return true;
                     }
                 }
@@ -227,7 +226,7 @@ class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
 
             foreach ($this->core->cart->items() as $item) {
                 if ($item->product_id() && !in_array($item->product_id(), $entry_ids)) {
-                    if ($item->quantity() > $this->core->sanitize_number($this->plugin_settings('buy_x'))) {
+                    if ($item->quantity() > Number::sanitize($this->plugin_settings('buy_x'))) {
                         return true;
                     }
                 }
