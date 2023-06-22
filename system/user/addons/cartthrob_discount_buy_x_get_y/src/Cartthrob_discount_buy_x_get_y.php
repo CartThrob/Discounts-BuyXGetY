@@ -2,56 +2,50 @@
 
 use CartThrob\Math\Number;
 use CartThrob\Plugins\Discount\DiscountPlugin;
-use ExpressionEngine\Service\Validation\Result as ValidateResult;
+use CartThrob\Plugins\Discount\ValidateCartInterface;
 
-class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
+class Cartthrob_discount_buy_x_get_y extends DiscountPlugin implements ValidateCartInterface
 {
     public $title = 'buy_x_get_y';
 
-    public $settings = array(
-        array(
+    public $settings = [
+        [
             'name' => 'buy_x_entry_ids',
             'short_name' => 'x_entry_ids',
             'note' => 'separate_multiple_entry_ids',
             'type' => 'text'
-        ),
-        array(
+        ],
+        [
             'name' => 'purchase_quantity',
             'short_name' => 'buy_x',
             'note' => 'enter_the_purchase_quantity',
             'type' => 'text'
-        ),
-        array(
+        ],
+        [
             'name' => 'get_y_entry_ids',
             'short_name' => 'y_entry_ids',
             'note' => 'separate_multiple_entry_ids',
             'type' => 'text'
-        ),
-        array(
+        ],
+        [
             'name' => 'discount_quantity',
             'short_name' => 'get_y_free',
             'note' => 'enter_the_number_of_items',
             'type' => 'text'
-        ),
-        array(
+        ],
+        [
             'name' => 'percentage_off',
             'short_name' => 'percentage_off',
             'note' => 'enter_the_percentage_discount',
             'type' => 'text'
-        ),
-        array(
+        ],
+        [
             'name' => 'amount_off',
             'short_name' => 'amount_off',
             'note' => 'enter_the_discount_amount',
             'type' => 'text'
-        ),
-        array(
-            'name' => 'per_item_limit',
-            'short_name' => 'item_limit',
-            'note' => 'per_item_limit_note',
-            'type' => 'text'
-        ),
-    );
+        ],
+    ];
 
     public function get_discount()
     {
@@ -59,11 +53,13 @@ class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
         $x_entry_ids = [];
         $x_not_entry_ids = [];
         $y_entry_ids = [];
+        $y_in_cart = false;
+        $y_found = 0;
+        $x_found = 0;
 
         // CHECK AMOUNTS AND PERCENTAGES
         if ($this->plugin_settings('percentage_off') !== '') {
             $percentage_off = .01 * Number::sanitize($this->plugin_settings('percentage_off'));
-
             if ($percentage_off > 100) {
                 $percentage_off = 100;
             } else if ($percentage_off < 0) {
@@ -78,18 +74,16 @@ class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
         }
 
         if ($y_entry_ids) {
-            $y_in_cart = false;
-
             foreach ($this->core->cart->items() as $item) {
                 if (in_array($item->product_id(), $y_entry_ids)) {
                     $y_in_cart = true;
-                    break;
+                    $y_found++;
                 }
             }
+        }
 
-            if ($y_in_cart === false) {
-                return 0;
-            }
+        if ($y_in_cart === false) {
+            return $discount;
         }
 
         // CHECK ENTRY IDS
@@ -101,7 +95,8 @@ class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
             }
         }
 
-        $item_limit = ($this->plugin_settings('item_limit')) ? $this->plugin_settings('item_limit') : FALSE;
+        //check if we have enough X products to warrant a discount
+        $item_limit = ($this->plugin_settings('item_limit')) ? $this->plugin_settings('item_limit') : false;
         $items = [];
         if (count($x_entry_ids) > 0 || count($x_not_entry_ids) > 0) {
             foreach ($this->core->cart->items() as $item) {
@@ -126,61 +121,38 @@ class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
                     $items[] = $item->price();
                 }
             }
-
         }
 
+        $buy_x = $this->plugin_settings('buy_x');
         $counts = [];
-        reset($items);
-        while (($price = current($items)) !== false) {
-            $key = key($items);
+        if ($items < $buy_x) {
+            return $discount;
+        }
 
-            $count = count($items);
-
-            while ($count > 0 && $count > $this->plugin_settings('buy_x')) {
-                if ($item_limit !== false && $item_limit < 1) {
-                    next($items);
-                    continue 2;
-                }
-
-                if (($count -= $this->plugin_settings('buy_x')) > 0) {
-                    if ($this->plugin_settings('get_y_free')) {
-                        $free_count = ($count > $this->plugin_settings('get_y_free')) ? $this->plugin_settings('get_y_free') : $count;
-                    } else {
-                        $free_count = $count;
-                    }
-
-                    if (isset($percentage_off)) {
-                        //get the lowest price by grabbing the last array item
-                        //since our array is sorted by price
-                        for ($i = 0; $i < $free_count; $i++) {
-                            $discount += end($items) * $percentage_off;
-                            array_pop($items);
-                        }
-
-                        //go back to where we were
-                        reset($items);
-                        while ($key != key($items)) next($items);
-                    } else {
-                        for ($i = 0; $i < $free_count; $i++) {
-                            array_pop($items);
-                            $discount += $amount_off;
+        //now loop through Y products and calculate discount(s)
+        $y_items = [];
+        if ($y_entry_ids) {
+            foreach ($this->core->cart->items() as $item) {
+                if (count($y_entry_ids) > 0) {
+                    if ($item->product_id() && in_array($item->product_id(), $y_entry_ids)) {
+                        for ($i = 0; $i < $item->quantity(); $i++) {
+                            if (isset($percentage_off)) {
+                                if ($this->plugin_settings('get_y_free') && $this->plugin_settings('get_y_free') > $i) {
+                                    $discount += $item->price() * $percentage_off;
+                                } elseif (!$this->plugin_settings('get_y_free')) {
+                                    $discount += $item->price() * $percentage_off;
+                                }
+                            } else {
+                                if ($this->plugin_settings('get_y_free') && $this->plugin_settings('get_y_free') > $i) {
+                                    $discount += $amount_off;
+                                } elseif (!$this->plugin_settings('get_y_free')) {
+                                    $discount = $amount_off;
+                                }
+                            }
                         }
                     }
-
-                    //remove the buy_x items from begginning of array
-                    for ($i = 0; $i < $this->plugin_settings('buy_x'); $i++) {
-                        array_shift($items);
-                    }
-
-                    $count -= $free_count;
-                }
-
-                if ($item_limit !== false) {
-                    $item_limit--;
                 }
             }
-
-            next($items);
         }
 
         return $discount;
@@ -190,32 +162,34 @@ class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
     {
         $entry_ids = [];
         $not_entry_ids = [];
-
-        if (!$this->plugin_settings('entry_ids')) {
-
+        if (!$this->plugin_settings('x_entry_ids')) {
+            $found = 0;
             foreach ($this->core->cart->items() as $item) {
-                if ($item->quantity() > Number::sanitize($this->plugin_settings('buy_x'))) {
+                if ($item->quantity() >= Number::sanitize($this->plugin_settings('buy_x'))) {
                     return true;
+                } else {
+
                 }
+
                 $this->set_error($this->core->lang('coupon_minimum_not_reached'));
                 return false;
             }
 
         }
-        if ($this->plugin_settings('entry_ids')) {
+        if ($this->plugin_settings('x_entry_ids')) {
 
-            $entry_ids = preg_split('/\s*,\s*/', trim($this->plugin_settings('entry_ids')));
-            if (preg_match('/^not (.*)/', trim($this->plugin_settings('entry_ids')), $matches)) {
+            $entry_ids = preg_split('/\s*,\s*/', trim($this->plugin_settings('x_entry_ids')));
+            if (preg_match('/^not (.*)/', trim($this->plugin_settings('x_entry_ids')), $matches)) {
                 $codes = (explode('not', $matches[1], 2));
                 $not_entry_ids = preg_split('/\s*,\s*/', $codes[1]);
             }
 
         }
-        if (count($entry_ids)) {
 
+        if (count($entry_ids)) {
             foreach ($this->core->cart->items() as $item) {
                 if ($item->product_id() && in_array($item->product_id(), $entry_ids)) {
-                    if ($item->quantity() > Number::sanitize($this->plugin_settings('buy_x'))) {
+                    if ($item->quantity() >= Number::sanitize($this->plugin_settings('buy_x'))) {
                         return true;
                     }
                 }
@@ -226,7 +200,7 @@ class Cartthrob_discount_buy_x_get_y extends DiscountPlugin
 
             foreach ($this->core->cart->items() as $item) {
                 if ($item->product_id() && !in_array($item->product_id(), $entry_ids)) {
-                    if ($item->quantity() > Number::sanitize($this->plugin_settings('buy_x'))) {
+                    if ($item->quantity() >= Number::sanitize($this->plugin_settings('buy_x'))) {
                         return true;
                     }
                 }
