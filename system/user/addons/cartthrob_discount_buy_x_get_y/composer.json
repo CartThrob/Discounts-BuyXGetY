@@ -1,0 +1,16 @@
+{
+    "name": "cartthrob/discount-buy-x-get-y",
+    "description": "Buy X Get Y CartThrob Discount Plugin",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Foster Made",
+            "email": "support@cartthrob.com"
+        }
+    ],
+    "autoload": {
+        "classmap": [
+            "src/Cartthrob_discount_buy_x_get_y.php"
+        ]
+    }
+}
